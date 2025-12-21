@@ -3,10 +3,23 @@ import { Schema, type, MapSchema } from "@colyseus/schema";
 
 export class Player extends Schema {
     @type("number")
-    x = Math.floor(Math.random() * 20) - 10;
-
+    speed = 0;
     @type("number")
-    y = Math.floor(Math.random() * 20) - 10;
+    pX = Math.floor(Math.random() * 20) - 10;
+    @type("number")
+    pY = 0;
+    @type("number")
+    pZ = Math.floor(Math.random() * 20) - 10;
+    @type("number")
+    vX = 0;
+    @type("number")
+    vY = 0;
+    @type("number")
+    vZ = 0;
+    @type("number")
+    rX = 0;
+    @type("number")
+    rY = 0;
 }
 
 export class State extends Schema {
@@ -15,21 +28,28 @@ export class State extends Schema {
 
     something = "This attribute won't be sent to the client-side";
 
-    createPlayer(sessionId: string) {
-        this.players.set(sessionId, new Player());
+    createPlayer(sessionId: string, data: any) {
+        const player = new Player();
+        player.speed = data.speed;
+
+        this.players.set(sessionId, player);
     }
 
     removePlayer(sessionId: string) {
         this.players.delete(sessionId);
     }
 
-    movePlayer(sessionId: string, position: any) {
-        if (position.x) {
-            this.players.get(sessionId).x = position.x;
+    movePlayer(sessionId: string, data: any) {
+        const player = this.players.get(sessionId);
+        player.pX = data.pX;
+        player.pY = data.pY;
+        player.pZ = data.pZ;
+        player.vX = data.vX;
+        player.vY = data.vY;
+        player.vZ = data.vZ;
+        player.rX = data.rX;
+        player.rY = data.rY;
 
-        } if (position.y) {
-            this.players.get(sessionId).y = position.y;
-        }
 
     }
 }
@@ -46,15 +66,19 @@ export class StateHandlerRoom extends Room<State> {
             // console.log("StateHandlerRoom received message from", client.sessionId, ":", data);
             this.state.movePlayer(client.sessionId, data);
         });
+
+        this.onMessage("shoot", (client, data) => {
+            this.broadcast("Shoot", data, { except: client });
+        })
     }
 
     onAuth(client, options, req) {
         return true;
     }
 
-    onJoin(client: Client) {
+    onJoin(client: Client, data: any) {
         client.send("hello", "world");
-        this.state.createPlayer(client.sessionId);
+        this.state.createPlayer(client.sessionId, data);
     }
 
     onLeave(client) {
