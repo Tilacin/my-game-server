@@ -11,11 +11,11 @@ export class Player extends Schema {
     @type("number")
     speed = 0;
     @type("number")
-    pX = Math.floor(Math.random() * 20) - 10;
+    pX = 0
     @type("number")
     pY = 0;
     @type("number")
-    pZ = Math.floor(Math.random() * 20) - 10;
+    pZ = 0
     @type("number")
     vX = 0;
     @type("number")
@@ -26,21 +26,37 @@ export class Player extends Schema {
     rX = 0;
     @type("number")
     rY = 0;
+
+    spawnIndex = -1;
 }
 
 export class State extends Schema {
     @type({ map: Player })
     players = new MapSchema<Player>();
 
+    spawnPoints = [
+        { x: 0, z: 20 },
+        { x: 0, z: -20 }
+    ];
+
     something = "This attribute won't be sent to the client-side";
 
-    createPlayer(sessionId: string, data: any) {
+    createPlayer(sessionId: string, data: any, spawnIndex: number) {
         const player = new Player();
         player.maxHP = data.hp;
         player.currentHP = data.hp;
         player.speed = data.speed;
 
+        player.spawnIndex = spawnIndex;
+        const spawnPoint = this.spawnPoints[spawnIndex]; // Теперь работает!
+        player.pX = spawnPoint.x;
+        player.pZ = spawnPoint.z;
+
         this.players.set(sessionId, player);
+    }
+    getSpawnPoint(playerId: string) {
+        const player = this.players.get(playerId);
+        return this.spawnPoints[player.spawnIndex];
     }
 
     removePlayer(sessionId: string) {
@@ -64,6 +80,8 @@ export class State extends Schema {
 
 export class StateHandlerRoom extends Room<State> {
     maxClients = 2;
+
+
 
     onCreate(options) {
         console.log("StateHandlerRoom created!", options);
@@ -91,14 +109,15 @@ export class StateHandlerRoom extends Room<State> {
 
             for (var i = 0; i < this.clients.length; i++) {
                 if (this.clients[i].id != clientID) continue;
-                const x = Math.floor(Math.random() * 20) - 10;
-                const z = Math.floor(Math.random() * 20) - 10;
+
+                const spawnPoint = this.state.getSpawnPoint(clientID);
+                const x = spawnPoint.x;
+                const z = spawnPoint.z;
 
                 const message = JSON.stringify({ x, z });
                 this.clients[i].send("Restart", message);
             }
         });
-
     }
 
     onAuth(client, options, req) {
@@ -108,7 +127,11 @@ export class StateHandlerRoom extends Room<State> {
     onJoin(client: Client, data: any) {
         if (this.clients.length > 1) this.lock();
         client.send("hello", "world");
-        this.state.createPlayer(client.sessionId, data);
+
+        const spawnIndex = this.clients.length - 1;
+        this.state.createPlayer(client.sessionId, data, spawnIndex);
+
+
     }
 
     onLeave(client) {
