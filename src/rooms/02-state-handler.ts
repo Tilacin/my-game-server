@@ -26,7 +26,8 @@ export class Player extends Schema {
     rX = 0;
     @type("number")
     rY = 0;
-
+    @type("uint8")
+    weaponIndex = 0;
     spawnIndex = -1;
 }
 
@@ -54,6 +55,13 @@ export class State extends Schema {
 
         this.players.set(sessionId, player);
     }
+    changeWeapon(playerId: string, weaponIndex: number) {
+        const player = this.players.get(playerId);
+        if (player) {
+            player.weaponIndex = weaponIndex;
+        }
+    }
+
     getSpawnPoint(playerId: string) {
         const player = this.players.get(playerId);
         return this.spawnPoints[player.spawnIndex];
@@ -87,6 +95,16 @@ export class StateHandlerRoom extends Room<State> {
         console.log("StateHandlerRoom created!", options);
 
         this.setState(new State());
+
+        this.onMessage("weaponSwitch", (client, data) => {
+
+            this.state.changeWeapon(client.sessionId, data.weaponIndex);
+
+            this.broadcast("weaponChanged", {
+                playerId: client.sessionId,
+                weaponIndex: data.weaponIndex
+            }, { except: client });
+        });
 
         this.onMessage("move", (client, data) => {
             // console.log("StateHandlerRoom received message from", client.sessionId, ":", data);
